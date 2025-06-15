@@ -13,10 +13,10 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Set up on JDK 17
+    - name: Set up on JDK 23
       uses: actions/setup-java@v3
       with:
-        java-version: '17'
+        java-version: '23'
         distribution: 'adopt'
 
     - name: Build with Maven
