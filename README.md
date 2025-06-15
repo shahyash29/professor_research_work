@@ -1,4 +1,4 @@
-**Traffic Analytics Service** <br>
+# Traffic Analytics Service <br>
 
 This service ingests traffic flow data from the HERE Traffic API, saves the raw JSON locally, and uses Azure Cosmos DB to store and process the data. It automatically uploads each JSON file in bulk to Cosmos DB and cleans up local files afterwards. <br>
 
@@ -14,7 +14,7 @@ Resilient scheduling: On startup and then every minute, the service scans and pr
 
 Data integrity: Sanitizes document IDs to avoid illegal characters. <br>
 
-# Prerequisites <br>
+## Prerequisites <br>
 
 Java 17 or higher <br>
 
@@ -24,14 +24,14 @@ Azure Cosmos DB account with a database and container <br>
 
 HERE API key for traffic flow data <br>
 
-# Installation <br>
+## Installation <br>
 
-# Clone the repository: <br>
+## Clone the repository: <br>
 
 git clone https://github.com/your-org/traffic-analytics-service.git <br>
 cd traffic-analytics-service <br>
 
-# Configure environment variables (create a .env or set in your environment): <br>
+## Configure environment variables (create a .env or set in your environment): <br>
 
 HERE_API_KEY=your_here_api_key <br>
 
@@ -43,18 +43,18 @@ TRAFFIC_DATA_DIR=./traffic_data <br>
 
 TRAFFIC_CSV_DIR=./traffic_csv <br>
 
-# Build the project: <br>
+## Build the project: <br>
 
 mvn clean package -DskipTests <br>
 
 Configuration <br>
 
-# Update your application.properties (or .env) with: <br>
+## Update your application.properties (or .env) with: <br>
 
-# Local directories <br>
+## Local directories <br>
 traffic.data.dir=${TRAFFIC_DATA_DIR} <br>
 
-# Cosmos DB bulk upload settings <br>
+## Cosmos DB bulk upload settings <br>
 azure.cosmos.uri=${AZ_COSMOS_URI} <br>
 
 azure.cosmos.key=${AZ_COSMOS_KEY} <br>
@@ -71,12 +71,12 @@ java -jar target/traffic-analytics-service-0.0.1-SNAPSHOT.jar <br>
 
 On startup, the service will process any existing JSON files in traffic_data/. It then schedules scans every 60 seconds to ingest new files. <br>
 
-# Docker <br>
+## Docker <br>
 Build the image: <br>
 
 docker build -t traffic-analytics-service . <br>
 
-# Run the container: <br>
+## Run the container: <br>
 
 docker run -d \ <br>
   -e AZ_COSMOS_URI=$AZ_COSMOS_URI \ <br>
@@ -85,7 +85,7 @@ docker run -d \ <br>
   -v $(pwd)/traffic_data:/app/traffic_data \ <br>
   traffic-analytics-service <br>
 
-# CI/CD <br>
+## CI/CD <br>
 
 A sample GitHub Actions workflow is provided in .github/workflows/ci-cd.yml. It builds the JAR, builds & pushes the Docker image, and tags releases. <br>
 
@@ -103,7 +103,7 @@ Uses CosmosAsyncContainer.executeBulkOperations to upsert documents in bulk. <br
 
 Deletes the local file with Files.deleteIfExists(...). <br>
 
-# TrafficSegment <br>
+## TrafficSegment <br>
 A simple POJO representing a traffic segment with id, time, description, and traffic metrics. <br>
 
 Error handling <br>
