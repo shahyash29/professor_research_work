@@ -12,17 +12,14 @@ Data integrity: Sanitizes document IDs to avoid illegal characters. <br>
 
 ## Prerequisites <br>
 
-Java 17 or higher <br>
-
+Java 23  <br>
 Maven <br>
-
 Azure Cosmos DB account with a database and container <br>
-
 HERE API key for traffic flow data <br>
 
 ## Installation <br>
 
-## Clone the repository: <br>
+Clone the repository: <br>
 
 git clone https://github.com/your-org/traffic-analytics-service.git <br>
 cd traffic-analytics-service <br>
@@ -57,10 +54,18 @@ Running Locally <br>
 java -jar target/traffic-analytics-service-0.0.1-SNAPSHOT.jar <br>
 On startup, the service will process any existing JSON files in traffic_data/. It then schedules scans every 60 seconds to ingest new files. <br>
 
-## Docker <br>
+## Running the Dockerized Service
 
-Build the image: <br>
-docker build -t traffic-analytics-service . <br>
+Since our GitHub Actions pipeline automatically builds and pushes a new `latest` image on every merge to `master`, anyone can run the most up-to-date version with just a few commands: <br>
+
+1. **Install Docker**  <br>
+   Make sure Docker is installed and running on your machine. <br>
+
+2. **Pull the latest image**  <br>
+   ```bash <br>
+   docker pull your-dockerhub-username/traffic-app:latest <br>
+
+mkdir -p "$(pwd)/traffic_data" <br>
 
 ## Run the container: <br>
 
