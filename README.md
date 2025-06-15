@@ -92,3 +92,12 @@ Error handling <br>
 Skips malformed JSON. <br>
 Logs failures to process individual files or items without stopping the service.<br>
 
+## Here are some diagrams illustrating how the code functions end-to-end <br>
+
+![When new traffic data is uploaded to Azure Cosmos DB, our CsvService automatically retrieves those records and writes them into a timestamped CSV file in your local traffic_csv/ directory.](images/AzureCloud.png) <br>
+
+![Data Upload in Azure Cloud](images/Azure.png) <br>
+
+## Please find attached screenshots of my GitHub Actions workflows in action. <br>
+
+![CI/CD Workflow](images/Workflows.png)
