@@ -17,10 +17,12 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: '23'
-        distribution: 'adopt'
+        distribution: 'temurin'
 
     - name: Build with Maven
-      run: mvn clean package -DskipTests
+      run: |
+        cd spring-boot-server
+        mvn clean package -DskipTests
 
     - name: Log in to DockerHub
       uses: docker/login-action@v2
@@ -31,4 +33,4 @@ jobs:
     - name:
       run: |
         docker build -t ${{ secrets.DOCKER_USERNAME }}/traffic-app:latest .
-        docker push ${{ secrets.DOCKER_USERNAME }}/traffic-app: latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/traffic-app:latest
