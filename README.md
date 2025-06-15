@@ -5,13 +5,9 @@ This service ingests traffic flow data from the HERE Traffic API, saves the raw 
 ## Features
 
 Real‑time ingestion: Fetches JSON files from a local directory every minute. <br>
-
 Bulk upload: Uses Azure Cosmos DB bulk operations for high‑throughput ingestion. <br>
-
 Automatic cleanup: Deletes local JSON files on successful upload. <br>
-
 Resilient scheduling: On startup and then every minute, the service scans and processes pending files. <br>
-
 Data integrity: Sanitizes document IDs to avoid illegal characters. <br>
 
 ## Prerequisites <br>
@@ -34,13 +30,9 @@ cd traffic-analytics-service <br>
 ## Configure environment variables (create a .env or set in your environment): <br>
 
 HERE_API_KEY=your_here_api_key <br>
-
 AZ_COSMOS_URI=https://<your-account>.documents.azure.com:443/ <br>
-
 AZ_COSMOS_KEY=<your_cosmos_key> <br>
-
 TRAFFIC_DATA_DIR=./traffic_data <br>
-
 TRAFFIC_CSV_DIR=./traffic_csv <br>
 
 ## Build the project: <br>
@@ -55,25 +47,19 @@ Configuration <br>
 traffic.data.dir=${TRAFFIC_DATA_DIR} <br>
 
 ## Cosmos DB bulk upload settings <br>
+
 azure.cosmos.uri=${AZ_COSMOS_URI} <br>
-
 azure.cosmos.key=${AZ_COSMOS_KEY} <br>
-
 azure.cosmos.database=<your_database_name> <br>
-
 azure.cosmos.container=<your_container_name> <br>
-
 Ensure the local traffic_data directory exists or will be created on startup. <br>
-
 Running Locally <br>
-
 java -jar target/traffic-analytics-service-0.0.1-SNAPSHOT.jar <br>
-
 On startup, the service will process any existing JSON files in traffic_data/. It then schedules scans every 60 seconds to ingest new files. <br>
 
 ## Docker <br>
-Build the image: <br>
 
+Build the image: <br>
 docker build -t traffic-analytics-service . <br>
 
 ## Run the container: <br>
@@ -90,25 +76,16 @@ docker run -d \ <br>
 A sample GitHub Actions workflow is provided in .github/workflows/ci-cd.yml. It builds the JAR, builds & pushes the Docker image, and tags releases. <br>
 
 How It Works <br>
-
 AzureTrafficDataService <br>
-
 On application startup and then every minute, it scans traffic_data/ for *.json files. <br>
-
 For each file, reads the JSON payload and extracts the traffic flow array. <br>
-
 Sanitizes segment descriptions to create valid Cosmos DB document IDs. <br>
-
 Uses CosmosAsyncContainer.executeBulkOperations to upsert documents in bulk. <br>
-
 Deletes the local file with Files.deleteIfExists(...). <br>
 
 ## TrafficSegment <br>
 A simple POJO representing a traffic segment with id, time, description, and traffic metrics. <br>
-
 Error handling <br>
-
 Skips malformed JSON. <br>
-
 Logs failures to process individual files or items without stopping the service.<br>
 
