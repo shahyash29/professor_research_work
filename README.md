@@ -100,4 +100,8 @@ Logs failures to process individual files or items without stopping the service.
 
 ## Please find attached screenshots of my GitHub Actions workflows in action. <br>
 
-![CI/CD Workflow](images/Workflows.png)
+![CI/CD Workflow](images/Workflows.png) <br>
+
+## And here’s the Docker image as it appears in Docker Hub, ready to be pulled and run: <br>
+
+![Docker Image of My Code](images/Docker.png)
