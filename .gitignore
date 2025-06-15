@@ -56,3 +56,4 @@ jacoco.exec
 # Misc
 traffic_data/
 traffic_csv/
+spring-boot-server/src/main/resources/static/test-credentials.js
