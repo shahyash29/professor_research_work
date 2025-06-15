@@ -1,114 +1,101 @@
 package com.example.trafficcsv.service;
 
+import com.azure.cosmos.CosmosAsyncContainer;
+import com.azure.cosmos.models.CosmosQueryRequestOptions;
+import com.azure.cosmos.models.SqlQuerySpec;
+import com.azure.cosmos.models.SqlParameter;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVWriter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
-import jakarta.annotation.PostConstruct;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.time.OffsetDateTime;
+import java.util.List;
 
 @Service
 public class CsvService {
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final CosmosAsyncContainer container;
+    private final Path csvPath;
+    private OffsetDateTime lastRun;
 
-    @Value("${traffic.data.dir}")
-    private String inputDirPath;
+    public CsvService(
+        CosmosAsyncContainer container,
+        @Value("${traffic.csv.dir}") String outputDir
+    ) throws IOException {
+        this.container = container;
+        Files.createDirectories(Paths.get(outputDir));
+        this.csvPath = Paths.get(outputDir, "traffic_live.csv");
 
-    @Value("${traffic.csv.dir}")
-    private String outputDirPath;
+        if (!Files.exists(csvPath)) {
+            try (CSVWriter w = new CSVWriter(new FileWriter(csvPath.toFile()))) {
+                w.writeNext(new String[]{
+                  "Time","LocationDescription","Length",
+                  "Speed","UncappedSpeed","FreeFlow",
+                  "JamFactor","Confidence","Traversability"
+                });
+            }
+        }
 
-    @PostConstruct
-    public void ensureOutputDir() throws IOException {
-        Files.createDirectories(Paths.get(outputDirPath));
+        this.lastRun = OffsetDateTime.now().minusMinutes(1);
     }
 
-    public String createConsolidatedCsv() throws IOException {
-        Path inputDir   = Paths.get(inputDirPath);
-        Path outputFile = Paths.get(outputDirPath, "traffic_data.csv");
+    @Scheduled(fixedRate = 60_000, initialDelay = 0)
+    public void scheduledAppend() {
+        appendNewRows();
+    }
 
-        List<String[]> rows = new ArrayList<>();
-        rows.add(new String[]{
-            "Time","Location Description","Length",
-            "Speed","Uncapped Speed","Free Flow",
-            "Jam Factor","Confidence","Traversability"
-        });
+    /**
+     * Queries for all new items since lastRun, appends them if any,
+     * and returns the CSV path if rows were added, or null otherwise.
+     */
+    public String appendNewRows() {
+        OffsetDateTime now = OffsetDateTime.now();
+        SqlQuerySpec spec = new SqlQuerySpec(
+            "SELECT * FROM c WHERE c.time > @from AND c.time <= @to",
+            List.of(
+              new SqlParameter("@from", lastRun.toString()),
+              new SqlParameter("@to",   now.toString())
+            )
+        );
+        CosmosQueryRequestOptions opts = new CosmosQueryRequestOptions();
 
-        // 1) Gather and sort JSON files by filename (timestamps in name sort lexicographically)
-        List<Path> jsonFiles;
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(inputDir, "*.json")) {
-            jsonFiles = new ArrayList<>();
-            stream.forEach(jsonFiles::add);
+        List<JsonNode> docs = container
+          .queryItems(spec, opts, JsonNode.class)
+          .byPage()
+          .flatMap(p -> Flux.fromIterable(p.getResults()))
+          .collectList()
+          .block();
+
+        lastRun = now;
+
+        if (docs == null || docs.isEmpty()) {
+            return null;
         }
-        // sort by filename ascending
-        jsonFiles.sort(Comparator.comparing(p -> p.getFileName().toString()));
 
-        int files = 0, records = 0;
-        for (Path jsonPath : jsonFiles) {
-            files++;
-            JsonNode root;
-            try {
-                root = mapper.readTree(Files.readString(jsonPath));
-            } catch (Exception ex) {
-                System.err.println("Skipping invalid JSON: " + jsonPath.getFileName());
-                continue;
-            }
-
-            // drill down to your FI array
-            JsonNode flow = root.path("flow");
-            if (!flow.isArray()) flow = root.path("results");
-            if (!flow.isArray()) {
-                JsonNode rws = root.path("RWS");
-                if (rws.isArray() && rws.size()>0) {
-                    JsonNode rw  = rws.get(0).path("RW");
-                    JsonNode fis = (rw.isArray()&&rw.size()>0)
-                                  ? rw.get(0).path("FIS")
-                                  : null;
-                    if (fis!=null && fis.isArray() && fis.size()>0) {
-                        flow = fis.get(0).path("FI");
-                    }
-                }
-            }
-            if (!flow.isArray()) continue;
-
-            // derive human‐readable time from filename
-            String fileTime = jsonPath.getFileName().toString()
-                .replace("traffic_data_","")
-                .replace(".json","")
-                .replace('-',':')
-                .replace('T',' ');
-
-            for (JsonNode seg : flow) {
-                JsonNode loc = seg.path("location");
-                JsonNode cf  = seg.path("currentFlow");
-                rows.add(new String[]{
-                    fileTime,
-                    loc.path("description").asText("Unknown"),
-                    loc.has("length") ? loc.get("length").asText() : "N/A",
-                    cf.path("speed").asText("0.0"),
-                    cf.path("speedUncapped").asText("0.0"),
-                    cf.path("freeFlow").asText("0.0"),
-                    cf.path("jamFactor").asText("0.0"),
-                    cf.path("confidence").asText("0.0"),
-                    cf.path("traversability").asText("N/A")
+        try (CSVWriter w = new CSVWriter(new FileWriter(csvPath.toFile(), true))) {
+            for (JsonNode d : docs) {
+                w.writeNext(new String[]{
+                  d.path("time").asText(""),
+                  d.path("locationDescription").asText(""),
+                  d.path("length").asText("0"),
+                  d.path("speed").asText("0"),
+                  d.path("speedUncapped").asText("0"),
+                  d.path("freeFlow").asText("0"),
+                  d.path("jamFactor").asText("0"),
+                  d.path("confidence").asText("0"),
+                  d.path("traversability").asText("")
                 });
-                records++;
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
-        // write CSV
-        try (CSVWriter writer = new CSVWriter(new FileWriter(outputFile.toFile()))) {
-            writer.writeAll(rows);
-        }
-
-        System.out.printf("Processed %d files, wrote %d records to %s%n",
-                          files, records, outputFile.toAbsolutePath());
-        return outputFile.toAbsolutePath().toString();
+        return csvPath.toAbsolutePath().toString();
     }
 }

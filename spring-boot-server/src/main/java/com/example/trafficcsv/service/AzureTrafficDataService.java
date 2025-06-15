@@ -19,9 +19,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -33,7 +31,6 @@ import java.util.stream.StreamSupport;
 public class AzureTrafficDataService {
 
     private static final Logger log = LoggerFactory.getLogger(AzureTrafficDataService.class);
-
     private final ObjectMapper mapper = new ObjectMapper();
     private final CosmosAsyncContainer asyncContainer;
 
@@ -44,27 +41,15 @@ public class AzureTrafficDataService {
         this.asyncContainer = asyncContainer;
     }
 
-    /* ------------------------------------------------------------------
-     *  START‑UP HOOK
-     * ------------------------------------------------------------------ */
-
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
         pushPendingFiles();
     }
 
-    /* ------------------------------------------------------------------
-     *  SCHEDULER – scan every minute
-     * ------------------------------------------------------------------ */
-
     @Scheduled(fixedRate = 60000)
     public void scheduledFolderScan() {
         pushPendingFiles();
     }
-
-    /* ------------------------------------------------------------------
-     *  LOCAL JSON INGESTION
-     * ------------------------------------------------------------------ */
 
     private void pushPendingFiles() {
         if (dataDir == null || dataDir.isBlank()) {
@@ -89,7 +74,7 @@ public class AzureTrafficDataService {
                 try {
                     String json = Files.readString(file, StandardCharsets.UTF_8);
                     uploadJson(json);
-                    Files.delete(file); // cleanup after success
+                    Files.deleteIfExists(file);
                     log.info("Uploaded and removed {}", file.getFileName());
                 } catch (IOException ex) {
                     log.error("Failed to process {}", file, ex);
@@ -100,13 +85,8 @@ public class AzureTrafficDataService {
         }
     }
 
-    /* ------------------------------------------------------------------
-     *  JSON TO COSMOS
-     * ------------------------------------------------------------------ */
-
     private void uploadJson(String jsonData) {
         String ts = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-
         JsonNode root;
         try {
             root = mapper.readTree(jsonData);
@@ -122,13 +102,13 @@ public class AzureTrafficDataService {
         }
 
         List<CosmosItemOperation> ops = StreamSupport.stream(flowArray.spliterator(), false)
-                .map(node -> createOp(node, ts))
-                .collect(Collectors.toList());
+            .map(node -> createOp(node, ts))
+            .collect(Collectors.toList());
 
         Flux.fromIterable(ops)
-            .buffer(100) // protect heap
+            .buffer(10)
             .concatMap(batch -> asyncContainer.executeBulkOperations(Flux.fromIterable(batch))
-                                               .publishOn(Schedulers.boundedElastic()))
+                                           .publishOn(Schedulers.boundedElastic()))
             .doOnNext(res -> {
                 if (res.getException() != null) {
                     log.error("Failed item={}, err={}", res.getOperation().getItem(), res.getException().getMessage());
@@ -142,24 +122,25 @@ public class AzureTrafficDataService {
         JsonNode loc = seg.path("location");
         JsonNode cf  = seg.path("currentFlow");
 
+        String rawDescription = loc.path("description").asText("Unknown");
+        String safeDescription = rawDescription.replaceAll("[/\\\\#]", "-");
+        String id = ts + "-" + safeDescription;
+
         TrafficSegment item = new TrafficSegment(
-                ts + "-" + loc.path("description").asText("Unknown"),
-                ts,
-                loc.path("description").asText("Unknown"),
-                loc.path("length").asDouble(0.0),
-                cf.path("speed").asDouble(0.0),
-                cf.path("speedUncapped").asDouble(0.0),
-                cf.path("freeFlow").asDouble(0.0),
-                cf.path("jamFactor").asDouble(0.0),
-                cf.path("confidence").asDouble(0.0),
-                cf.path("traversability").asText("N/A")
+            id,
+            ts,
+            rawDescription,
+            loc.path("length").asDouble(0.0),
+            cf.path("speed").asDouble(0.0),
+            cf.path("speedUncapped").asDouble(0.0),
+            cf.path("freeFlow").asDouble(0.0),
+            cf.path("jamFactor").asDouble(0.0),
+            cf.path("confidence").asDouble(0.0),
+            cf.path("traversability").asText("N/A")
         );
+
         return CosmosBulkOperations.getUpsertItemOperation(item, new PartitionKey(item.getTime()));
     }
-
-    /* ------------------------------------------------------------------
-     *  JSON HELPER
-     * ------------------------------------------------------------------ */
 
     private JsonNode extractFlowNode(JsonNode root) {
         JsonNode flow = root.path("flow");
