@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - spring-boot-server/.env
     volumes:
-      - ./traffic_data:/app/traffic_data
-      - ./traffic_csv:/app/traffic_csv
+      - ./spring-boot-server/traffic_data:/app/traffic_data
+      - ./spring-boot-server/traffic_csv:/app/traffic_csv
