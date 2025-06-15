@@ -35,10 +35,8 @@ TRAFFIC_CSV_DIR=./traffic_csv <br>
 ## Build the project: <br>
 
 mvn clean package -DskipTests <br>
-
 Configuration <br>
-
-## Update your application.properties (or .env) with: <br>
+Update your application.properties (or .env) with: <br>
 
 ## Local directories <br>
 traffic.data.dir=${TRAFFIC_DATA_DIR} <br>
